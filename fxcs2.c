@@ -8,6 +8,7 @@
 #define MAX_DESCRIP 128
 #define CHOP_SIZE 3
 #define INIT_SIZE 5
+#define CSV_DELIMITER '|'
 	
 typedef struct {
 	size_t id;
@@ -23,98 +24,116 @@ typedef enum
 
 char *file_generator (char *,char,size_t);
 char get_csv_delimiter (FILE *);
-status_t get_reg (FILE *,regist_t *);
+status_t get_regist (FILE *,regist_t *);
 
 
 
-status_t get_reg (FILE *fi,regist_t *reg)
+status_t get_regist  (FILE *fi, regist_t * reg)
 {
-	char *aux,*val,delimiter,aux_char;
-	size_t alloc_size,used_size;
+	char *aux,aux_char,*val,delimiter;
+	size_t used_size,alloc_size,alloc_size_reg;
 	
+
+
 	if (fi == NULL || reg == NULL)
 		return st_err;
-/*
-	if ((delimiter = get_csv_delimiter (fi))==EOF)
-		return st_err;
-*/
-	delimiter = '|';
 
+	delimiter = CSV_DELIMITER;
 
-
-
-	if ((aux = (char *)malloc (sizeof (char )*(sizeof (size_t)+1)))==NULL)
+	if ((aux = (char *)malloc (sizeof (char )*INIT_SIZE))==NULL)
 		return st_err;
 
-	alloc_size = sizeof (size_t)+1;
+	alloc_size = INIT_SIZE;
 
-	if (fgets (aux,sizeof (size_t)+1,fi)==NULL)
-	{
-	 	free (aux);
-	 	return st_err;
-	 }
-	aux [alloc_size-1] = '\0';
-
-	
-	reg->id = atoi (aux);  	
-
-	free (aux);
-
-	printf(" %li\n", ftell (fi));
-
-	aux_char = fgetc (fi);
-	putchar (aux_char);
-
-	if ((reg->des = (char *)malloc ( sizeof (char )*INIT_SIZE))== NULL)
-		return st_err;
-	
-	 
-	alloc_size = INIT_SIZE; 
-
-	for (used_size = 0 ; used_size <= MAX_DESCRIP ; used_size ++ )
+	for (used_size = 0; (aux_char = fgetc (fi))!= EOF || aux_char != delimiter; used_size++)
 
 	{
 		if (used_size == alloc_size-1)
 		{
-			if ((val = (char*)realloc (reg->des, sizeof (char )*(alloc_size+=CHOP_SIZE)))==NULL)
+			if ((val = (char *)realloc (aux,sizeof (char )*(alloc_size+= CHOP_SIZE)))==NULL)
 			{
-				free (reg->des);
+				free (aux);
 				return st_err;
 			}
-			reg->des = val;
-		}
 
-		if ((aux_char = fgetc (fi)) == delimiter || aux_char == EOF)
-			break;
-
-
-		reg->des [used_size] = aux_char;
+			aux = val;
+			}
+		aux [used_size]=aux_char;
 	}
 
-	puts (reg->des);
-
-	if (used_size == MAX_DESCRIP || aux_char == EOF)
+	if (aux_char == EOF)
 	{
+		free (aux );
+		return st_err;
+	}
+
+	reg->id  = atoi (aux);
+
+	if ((reg->des = (char *)malloc (sizeof (char )*INIT_SIZE))==NULL)
+	{
+		free (aux );
+		return st_err;
+	}
+
+	alloc_size_reg = INIT_SIZE;
+
+	for (used_size = 0; (aux_char = fgetc (fi))!= EOF || aux_char != delimiter;used_size++)
+
+	{
+		if (used_size == alloc_size_reg-1)
+		{
+			if ((val = (char *)realloc (reg->des,sizeof (char )*(alloc_size+= CHOP_SIZE)))==NULL)
+			{
+				free (aux);
+				return st_err;
+			}
+
+			reg->des = val;
+			}
+		reg->des [used_size]=aux_char;
+	}
+
+	if (used_size == MAX_DESCRIP)
+	{
+		free (aux);
 		free (reg->des);
 		return st_err;
 	}
 
-	if ((aux = (char *)malloc (sizeof (char )*(sizeof (float)+1)))==NULL)
-		{	
-			free (reg->des);
-			return st_err;
-		}
-
-	alloc_size = sizeof (float)+1; 	
 	
-	if (fgets (aux,sizeof (float)+1,fi)==NULL)
-	 	{
-	 		free (reg->des);
-	 		free (aux);
-	 		return st_err;
-	 	}
+	if (aux_char == EOF)
+	{
+		free (aux );
+		free (reg->des);
+		return st_err;
+	}
 
-	aux [alloc_size-1] = '\0';
+	
+	for (used_size = 0; (aux_char = fgetc (fi))!= EOF || aux_char != delimiter;used_size++)
+
+	{
+		if (used_size == alloc_size-1)
+		{
+			if ((val = (char *)realloc (aux,sizeof (char )*(alloc_size+= CHOP_SIZE)))==NULL)
+			{
+				free (aux);
+				free (reg->des);
+				return st_err;
+			}
+
+			aux = val;
+			}
+		aux [used_size]=aux_char;
+	}
+
+	
+	if (aux_char == EOF)
+	
+	{
+		free (aux );
+		free (reg->des);
+		return st_err;
+	}
 
 	
 	reg->tyme = atof (aux);
@@ -186,13 +205,8 @@ int main (void )
 	FILE *file;
 	regist_t reg;
 	status_t st;
-	char *val; 
-if ((val=file_generator("csv.txt",'|',10))==NULL)
-		{	
-		puts ("erro al crear el archivo");
-		return EXIT_FAILURE;
 
-	}	
+
 
 if ((file = fopen ("csv.txt","rt"))==NULL)
 	{	
@@ -200,7 +214,9 @@ if ((file = fopen ("csv.txt","rt"))==NULL)
 		return EXIT_FAILURE;
 
 	}
-	if ((st = get_reg (file,&reg))== st_err)
+
+
+	if ((st = get_regist (file,&reg))== st_err)
 	{
 		puts ("error al codificar");
 		fclose (file);
